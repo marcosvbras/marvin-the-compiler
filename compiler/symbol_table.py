@@ -21,14 +21,24 @@ class SymbolTable:
         self.table[Token(Tag.KEYWORD, "escreva")] = Identifier()
         self.table[Token(Tag.KEYWORD, "leia")] = Identifier()
         self.table[Token(Tag.KEYWORD, "subrotina")] = Identifier()
-        self.table[Token(Tag.KEYWORD, "ou")] = Identifier()
-        self.table[Token(Tag.KEYWORD, "e")] = Identifier()
-        self.table[Token(Tag.KEYWORD, "nao")] = Identifier()
+        self.table[Token(Tag.KEYWORD, "Ou")] = Identifier()
+        self.table[Token(Tag.KEYWORD, "E")] = Identifier()
+        self.table[Token(Tag.KEYWORD, "Nao")] = Identifier()
+        self.table[Token(Tag.KEYWORD, "logico")] = Identifier()
+        self.table[Token(Tag.KEYWORD, "numerico")] = Identifier()
+        self.table[Token(Tag.KEYWORD, "literal")] = Identifier()
+        self.table[Token(Tag.KEYWORD, "nulo")] = Identifier()
+        self.table[Token(Tag.KEYWORD, "retorne")] = Identifier()
+        self.table[Token(Tag.KEYWORD, "verdadeiro")] = Identifier()
+        self.table[Token(Tag.KEYWORD, "falso")] = Identifier()
 
     def __len__(self, other):
         return len(self.table)
 
     def __getitem__(self, item):
         for i in self.table.keys():
-            if i.lexeme == item:
+            if i.lexeme.lower() == item.lower():
                 return i
+
+        return None
+

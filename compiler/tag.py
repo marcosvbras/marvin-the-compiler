@@ -32,8 +32,8 @@ class Tag(Enum):
     # Identifier
     ID = auto()
 
-    # Data types
-    NUMERICO = auto()
-    LOGICO = auto()
-    LITERAL = auto()
-    NULO = auto()
+    # Values
+    VALUE_NUMERICO = auto()
+    VALUE_LOGICO = auto()
+    VALUE_LITERAL = auto()
+    VALUE_NULO = auto()
