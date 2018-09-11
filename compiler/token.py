@@ -7,4 +7,4 @@ class Token:
         self.column = column
 
     def __str__(self):
-        return "<{}, \"{}\">".format(self.tag, self.lexeme)
+        return "<{}, \"{}\"> Line: {} - Column: {}".format(self.tag, self.lexeme, self.line, self.column)

@@ -13,7 +13,6 @@ class Lexer:
     TABULATION = '\t'
 
     def __init__(self, file_name):
-        self.END_OF_FILE = -1
         self.last_read_char = None
         self.current_line = 1
         self.current_column = 1
@@ -32,8 +31,8 @@ class Lexer:
             self.file.seek(self.file.tell() - 1)
             self.current_column -= 1
 
-    def analyse(self):
-        lexeme = None
+    def next_token(self):
+        lexeme = ""
         current_state = 1
 
         while True:
@@ -48,7 +47,8 @@ class Lexer:
                 elif self.last_read_char == self.TABULATION:
                     self.current_column += 2
                 elif self.last_read_char == self.WHITE_SPACE or self.last_read_char == '\r':
-                    self.current_column += 1
+                    # self.current_column += 1
+                    pass
                 elif self.last_read_char == self.NEW_LINE:
                     self.current_line += 1
                     self.current_column = 1
@@ -96,6 +96,8 @@ class Lexer:
                     if token is None:
                         return Token(Tag.ID, lexeme, self.current_line, self.current_column)
                     else:
+                        token.line = self.current_line
+                        token.column = self.current_column
                         return token
 
             elif current_state == 8:
@@ -192,10 +194,11 @@ class Lexer:
 
     def is_ascii(self, string):
         try:
-            string.decode('ascii')
-            return True
-        except UnicodeDecodeError:
+            string.encode('ascii')
+        except UnicodeEncodeError:
             return False
+        else:
+            return True
 
     def throw_error(self, error):
         pass
