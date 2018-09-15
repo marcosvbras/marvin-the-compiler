@@ -186,8 +186,18 @@ class Lexer:
                     pass
                 elif self.is_ascii(self.last_read_char):
                     lexeme += self.last_read_char
-                elif self.last_read_char == '"':
+                    current_state = 32
+                # elif self.last_read_char == '"':
+                #     return Token(Tag.VALUE_LITERAL, lexeme, self.current_line, self.current_column)
+                else:
+                    # TODO: throw error if it is not ASCII
+                    pass
+
+            elif current_state == 32:
+                if self.last_read_char == '"':  # Go to state 33 - Final State - Return the token
                     return Token(Tag.VALUE_LITERAL, lexeme, self.current_line, self.current_column)
+                elif self.is_ascii(self.last_read_char):
+                    lexeme += self.last_read_char
                 else:
                     # TODO: throw error if it is not ASCII
                     pass
