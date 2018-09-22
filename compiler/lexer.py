@@ -1,8 +1,7 @@
 from .symbol_table import SymbolTable
 from .token import Token
 from .tag import Tag
-
-# TODO: Check "verdadeiro" and "falso"
+from .errors import LexicalError
 
 
 class Lexer:
@@ -11,20 +10,17 @@ class Lexer:
     NEW_LINE = '\n'
     WHITE_SPACE = ' '
     TABULATION = '\t'
+    INITIAL_STATE = 1
 
     def __init__(self, file_name):
         self.last_read_char = None
         self.current_line = 1
         self.current_column = 1
         self.file = None
-        self.symbolTable = None
         self.file_name = file_name
         self.symbol_table = SymbolTable()
-
-        try:
-            self.file = open(self.file_name, 'r')
-        except Exception as ex:
-            raise Exception("File not found")
+        self.is_error_already_raised = False
+        self.file = open(self.file_name, 'r')
 
     def seek_to_previous_position(self):
         if self.last_read_char is not None:
@@ -33,7 +29,7 @@ class Lexer:
 
     def next_token(self):
         lexeme = ""
-        current_state = 1
+        current_state = self.INITIAL_STATE
 
         while True:
             self.last_read_char = self.file.read(1)
@@ -47,7 +43,6 @@ class Lexer:
                 elif self.last_read_char == self.TABULATION:
                     self.current_column += 2
                 elif self.last_read_char == self.WHITE_SPACE or self.last_read_char == '\r':
-                    # self.current_column += 1
                     pass
                 elif self.last_read_char == self.NEW_LINE:
                     self.current_line += 1
@@ -83,8 +78,10 @@ class Lexer:
                 elif self.last_read_char == '*':  # Go to state 20
                     return Token(Tag.OPERATOR_MULTIPLICATION, '*', self.current_line, self.current_column)
                 elif self.last_read_char == '/':  # Go to state 21
-                    lexeme += self.last_read_char
                     current_state = 21
+                else:
+                    self.raise_lexical_error(self.last_read_char, self.current_line, self.current_column)
+                    self.is_error_already_raised = False
 
             elif current_state == 2:
                 if self.last_read_char.isalpha() or self.last_read_char.isdigit():  # Stay at state 2
@@ -94,11 +91,12 @@ class Lexer:
                     token = self.symbol_table[lexeme]
 
                     if token is None:
-                        return Token(Tag.ID, lexeme, self.current_line, self.current_column)
-                    else:
-                        token.line = self.current_line
-                        token.column = self.current_column
-                        return token
+                        token = self.symbol_table.include(lexeme, Tag.ID)
+
+                    token.line = self.current_line
+                    token.column = self.current_column
+
+                    return token
 
             elif current_state == 8:
                 if self.last_read_char == '=':  # Go to state 9
@@ -107,12 +105,23 @@ class Lexer:
                 elif self.last_read_char == '-':  # Go to state 11
                     lexeme += self.last_read_char
                     current_state = 11
-                elif self.last_read_char == '>':  # Go to state 13
+                elif self.last_read_char == '>':  # Go to state 13 - Final State - Just Return the Token
                     lexeme += self.last_read_char
                     return Token(Tag.OPERATOR_DIFFERENT, lexeme, self.current_line, self.current_column)
-                else:  # 10
+                else:  # Go to state 10 - Final State - Just Return the Token and and the file pointer
                     self.seek_to_previous_position()
                     return Token(Tag.OPERATOR_LESS_THAN, lexeme, self.current_line, self.current_column)
+
+            elif current_state == 11:
+                if self.last_read_char == '-':  # Go to state 12 - Final State - Just Return the Token
+                    lexeme += self.last_read_char
+                    self.is_error_already_raised = False
+                    return Token(Tag.OPERATOR_ASSIGN, lexeme, self.current_line, self.current_column)
+                elif not self.is_error_already_raised:
+                    """
+                        The symbol read is different of the expected for '<--'
+                    """
+                    self.raise_lexical_error(self.last_read_char, self.current_line, self.current_column)
 
             elif current_state == 14:
                 if self.last_read_char == '=':  # Go to state 15
@@ -122,14 +131,6 @@ class Lexer:
                     self.seek_to_previous_position()
                     return Token(Tag.OPERATOR_GREATER_THAN, lexeme, self.current_line, self.current_column)
 
-            elif current_state == 12:
-                if self.last_read_char == '-':  # Go to state 12
-                    lexeme += self.last_read_char
-                    return Token(Tag.OPERATOR_ASSIGN, lexeme, self.current_line, self.current_column)
-                else:
-                    # TODO: Throw error if it reads something different of '<--'
-                    pass
-
             elif current_state == 21:
                 if self.last_read_char == '*':  # Go to state 22
                     current_state = 22
@@ -137,23 +138,41 @@ class Lexer:
                     current_state = 25
                 else:  # Go to state 24 - Final State - Return the token and the file pointer
                     self.seek_to_previous_position()
-                    return Token(Tag.OPERATOR_DIVISION, lexeme, self.current_line, self.current_column)
+                    return Token(Tag.OPERATOR_DIVISION, "/", self.current_line, self.current_column)
 
             elif current_state == 22:
-                if self.last_read_char == '*':  # Go to state 23
+                if self.last_read_char == self.NEW_LINE:
+                    self.current_line += 1
+                    self.current_column = 1
+                elif self.last_read_char == '*':  # Go to state 23
                     current_state = 23
+                elif self.last_read_char == self.END_OF_FILE:
+                    """
+                        Multi-line comments must be closed before end of file.
+                    """
+                    self.raise_error("Comment not closed", self.current_line, self.current_column)
 
             elif current_state == 23:
                 if self.last_read_char == '/':  # Return to initial state
                     current_state = 1
                 elif self.last_read_char == '*':  # Stay at state 23
                     pass
+                elif self.last_read_char == self.NEW_LINE:
+                    self.current_line += 1
+                    self.current_column = 1
+                elif self.last_read_char == self.END_OF_FILE:
+                    """
+                        Multi-line comments must be closed before end of file.
+                    """
+                    self.raise_error("Comment not closed", self.current_line, self.current_column)
                 else:  # Return to state 22
                     current_state = 22
 
             elif current_state == 25:
                 if self.last_read_char == self.NEW_LINE:  # Return to initial state
                     current_state = 1
+                    self.current_column = 1
+                    self.current_line += 1
 
             elif current_state == 26:
                 if self.last_read_char.isdigit():  # Keep in state 26
@@ -167,40 +186,46 @@ class Lexer:
 
             elif current_state == 28:
                 if self.last_read_char.isdigit():  # Go to state 29
+                    self.is_error_already_raised = False
                     lexeme += self.last_read_char
                     current_state = 29
-                else:
-                    # TODO: throw error if it reads something different after the "."
-                    pass
+                elif not self.is_error_already_raised:
+                    """
+                        The symbol read is different of the expected for a decimal number
+                    """
+                    self.raise_lexical_error(self.last_read_char, self.current_line, self.current_column)
+                    self.is_error_already_raised = True
 
             elif current_state == 29:
                 if self.last_read_char.isdigit():  # Keep in state 29
                     lexeme += self.last_read_char
                 else:  # Go to state 30 - Final State - Return the token and the file pointer
                     self.seek_to_previous_position()
+                    self.is_error_already_raised = False
                     return Token(Tag.VALUE_NUMERICO, lexeme, self.current_line, self.current_column)
+
+                # TODO: Check if it needs to raise error about the second "." in decimal numbers
 
             elif current_state == 31:
                 if self.last_read_char == self.END_OF_FILE:
-                    # TODO: throw error if it reaches EOF without close string
-                    pass
-                elif self.is_ascii(self.last_read_char):
+                    self.raise_lexical_error(self.last_read_char, self.current_line, self.current_column)
+                elif self.is_ascii(self.last_read_char) and not self.last_read_char == '"' and not self.last_read_char == self.NEW_LINE:
                     lexeme += self.last_read_char
                     current_state = 32
-                # elif self.last_read_char == '"':
-                #     return Token(Tag.VALUE_LITERAL, lexeme, self.current_line, self.current_column)
-                else:
-                    # TODO: throw error if it is not ASCII
-                    pass
+                elif not self.is_error_already_raised:
+                    self.raise_lexical_error(self.last_read_char, self.current_line, self.current_column)
 
             elif current_state == 32:
                 if self.last_read_char == '"':  # Go to state 33 - Final State - Return the token
+                    self.is_error_already_raised = False
                     return Token(Tag.VALUE_LITERAL, lexeme, self.current_line, self.current_column)
-                elif self.is_ascii(self.last_read_char):
+                elif self.is_ascii(self.last_read_char) and not self.last_read_char == self.NEW_LINE:
                     lexeme += self.last_read_char
-                else:
-                    # TODO: throw error if it is not ASCII
-                    pass
+                elif not self.is_error_already_raised:
+                    """
+                        Literal values must be closed before a new line starts and must be ASCII.
+                    """
+                    self.raise_lexical_error(self.last_read_char, self.current_line, self.current_column)
 
     def is_ascii(self, string):
         try:
@@ -210,10 +235,17 @@ class Lexer:
         else:
             return True
 
-    def throw_error(self, error):
-        pass
+    def print_symbol_table(self):
+        for item in self.symbol_table.table.values():
+            print(item)
+
+    def raise_lexical_error(self, symbol, line, column):
+        self.is_error_already_raised = True
+        print(LexicalError(symbol, line, column))
+
+    def raise_error(self, message, line, column):
+        print("{} on line {} column {}".format(message, line, column))
 
     def __del__(self):
         self.file.close()
 
-#     return word.encode('ascii').isalpha()

@@ -10,6 +10,9 @@ def run():
         print(str(token))
         token = lexer.next_token()
 
+    print("\n\n\nSymbol Table:")
+    lexer.print_symbol_table()
+
 
 if __name__ == '__main__':
     run()
