@@ -1,7 +1,7 @@
 from .symbol_table import SymbolTable
 from .token import Token
 from .tag import Tag
-from .errors import LexicalError
+from .errors import LexicalError, CustomLexicalError
 
 
 class Lexer:
@@ -19,7 +19,7 @@ class Lexer:
         self.file = None
         self.file_name = file_name
         self.symbol_table = SymbolTable()
-        self.is_error_already_raised = False
+        self.was_error_raised = False
         self.file = open(self.file_name, 'r')
 
     def seek_to_previous_position(self):
@@ -81,7 +81,7 @@ class Lexer:
                     current_state = 21
                 else:
                     self.raise_lexical_error(self.last_read_char, self.current_line, self.current_column)
-                    self.is_error_already_raised = False
+                    self.was_error_raised = False
 
             elif current_state == 2:
                 if self.last_read_char.isalpha() or self.last_read_char.isdigit():  # Stay at state 2
@@ -115,9 +115,9 @@ class Lexer:
             elif current_state == 11:
                 if self.last_read_char == '-':  # Go to state 12 - Final State - Just Return the Token
                     lexeme += self.last_read_char
-                    self.is_error_already_raised = False
+                    self.was_error_raised = False
                     return Token(Tag.OPERATOR_ASSIGN, lexeme, self.current_line, self.current_column)
-                elif not self.is_error_already_raised:
+                elif not self.was_error_raised:
                     """
                         The symbol read is different of the expected for '<--'
                     """
@@ -186,45 +186,59 @@ class Lexer:
 
             elif current_state == 28:
                 if self.last_read_char.isdigit():  # Go to state 29
-                    self.is_error_already_raised = False
+                    self.was_error_raised = False
                     lexeme += self.last_read_char
                     current_state = 29
-                elif not self.is_error_already_raised:
+                elif not self.was_error_raised:
                     """
                         The symbol read is different of the expected for a decimal number
                     """
                     self.raise_lexical_error(self.last_read_char, self.current_line, self.current_column)
-                    self.is_error_already_raised = True
+                    self.was_error_raised = True
 
             elif current_state == 29:
                 if self.last_read_char.isdigit():  # Keep in state 29
                     lexeme += self.last_read_char
                 else:  # Go to state 30 - Final State - Return the token and the file pointer
                     self.seek_to_previous_position()
-                    self.is_error_already_raised = False
+                    self.was_error_raised = False
                     return Token(Tag.VALUE_NUMERICO, lexeme, self.current_line, self.current_column)
 
-                # TODO: Check if it needs to raise error about the second "." in decimal numbers
-
             elif current_state == 31:
-                if self.last_read_char == self.END_OF_FILE:
-                    self.raise_lexical_error(self.last_read_char, self.current_line, self.current_column)
-                elif self.is_ascii(self.last_read_char) and not self.last_read_char == '"' and not self.last_read_char == self.NEW_LINE:
+                self.was_error_raised = False
+
+                if self.last_read_char == self.END_OF_FILE and not self.was_error_raised:
+                    self.raise_lexical_error("Literal values must be closed with double quote before end of file", self.current_line, self.current_column)
+                elif self.last_read_char == self.NEW_LINE:
+                    if not self.was_error_raised:
+                        self.raise_error("Literal values must be closed with double quote before a new line starts", self.current_line,
+                                         self.current_column)
+                    self.current_line += 1
+                    self.current_column = 1
+                elif self.last_read_char == '"' and not self.was_error_raised:
+                    self.raise_error("Empty literal values are not allowed", self.current_line, self.current_column)
+                elif self.is_ascii(self.last_read_char):
                     lexeme += self.last_read_char
                     current_state = 32
-                elif not self.is_error_already_raised:
+                elif not self.was_error_raised:
                     self.raise_lexical_error(self.last_read_char, self.current_line, self.current_column)
 
             elif current_state == 32:
                 if self.last_read_char == '"':  # Go to state 33 - Final State - Return the token
-                    self.is_error_already_raised = False
+                    self.was_error_raised = False
                     return Token(Tag.VALUE_LITERAL, lexeme, self.current_line, self.current_column)
-                elif self.is_ascii(self.last_read_char) and not self.last_read_char == self.NEW_LINE:
+                elif self.last_read_char == self.END_OF_FILE and not self.was_error_raised:
+                    self.raise_error("Literal values must be closed with double quote before end of file", self.current_line, self.current_column)
+                elif self.last_read_char == self.NEW_LINE:
+                    if not self.was_error_raised:
+                        self.raise_error("Literal values must be closed with double quote before a new line starts", self.current_line,
+                                         self.current_column)
+
+                    self.current_line += 1
+                    self.current_column = 1
+                elif self.is_ascii(self.last_read_char):
                     lexeme += self.last_read_char
-                elif not self.is_error_already_raised:
-                    """
-                        Literal values must be closed before a new line starts and must be ASCII.
-                    """
+                elif not self.was_error_raised:
                     self.raise_lexical_error(self.last_read_char, self.current_line, self.current_column)
 
     def is_ascii(self, string):
@@ -240,11 +254,12 @@ class Lexer:
             print(item)
 
     def raise_lexical_error(self, symbol, line, column):
-        self.is_error_already_raised = True
         print(LexicalError(symbol, line, column))
+        self.was_error_raised = True
 
     def raise_error(self, message, line, column):
-        print("{} on line {} column {}".format(message, line, column))
+        print(CustomLexicalError(message, line, column))
+        self.was_error_raised = True
 
     def __del__(self):
         self.file.close()
