@@ -1,5 +1,3 @@
-from .lexer import Lexer
-from .token import Token
 from .tag import Tag
 
 
@@ -173,16 +171,61 @@ class Parser:
             self.skip("Expected \"fim\", found \"{}\" instead".format(self.token.lexeme))
 
     def cmd_para(self):
-        pass
+        if not self.eat(Tag.KEYWORD_FOR):
+            self.skip("Expected \"para\", found \"{}\" instead".format(self.token.lexeme))
+
+        if not self.eat(Tag.ID):
+            self.skip("Expected an \"ID\", found \"{}\" instead".format(self.token.lexeme))
+
+        self.cmd_atrib()
+
+        if not self.eat(Tag.KEYWORD_UNTIL):
+            self.skip("Expected \"ate\", found \"{}\" instead".format(self.token.lexeme))
+
+        self.expressao()
+
+        if not self.eat(Tag.KEYWORD_DO):
+            self.skip("Expected \"faca\", found \"{}\" instead".format(self.token.lexeme))
+
+        if not self.eat(Tag.KEYWORD_BEGIN):
+            self.skip("Expected \"inicio\", found \"{}\" instead".format(self.token.lexeme))
+
+        self.lista_cmd()
+
+        if not self.eat(Tag.KEYWORD_END):
+            self.skip("Expected \"fim\", found \"{}\" instead".format(self.token.lexeme))
 
     def cmd_repita(self):
-        pass
+        if not self.eat(Tag.KEYWORD_REPEAT):
+            self.skip("Expected \"repita\", found \"{}\" instead".format(self.token.lexeme))
+
+        self.lista_cmd()
+
+        if not self.eat(Tag.KEYWORD_UNTIL):
+            self.skip("Expected \"ate\", found \"{}\" instead".format(self.token.lexeme))
+
+        self.expressao()
 
     def cmd_atrib(self):
-        pass
+        if not self.eat(Tag.OPERATOR_ASSIGN):
+            self.skip("Expected \"<--\", found \"{}\" instead".format(self.token.lexeme))
+
+        self.expressao()
+
+        if not self.eat(Tag.SYMBOL_SEMICOLON):
+            self.skip("Expected \";\", found \"{}\" instead".format(self.token.lexeme))
 
     def cmd_chama_rotina(self):
-        pass
+        if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
+            self.skip("Expected \"(\", found \"{}\" instead".format(self.token.lexeme))
+
+        self.regex_exp()
+
+        if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
+            self.skip("Expected \")\", found \"{}\" instead".format(self.token.lexeme))
+
+        if not self.eat(Tag.SYMBOL_SEMICOLON):
+            self.skip("Expected \";\", found \"{}\" instead".format(self.token.lexeme))
 
     def regex_exp(self):
         pass
@@ -191,31 +234,60 @@ class Parser:
         pass
 
     def cmd_escreva(self):
-        pass
+        if not self.eat(Tag.KEYWORD_WRITE):
+            self.skip("Expected \"escreva\", found \"{}\" instead".format(self.token.lexeme))
+
+        if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
+            self.skip("Expected \"(\", found \"{}\" instead".format(self.token.lexeme))
+
+        self.expressao()
+
+        if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
+            self.skip("Expected \")\", found \"{}\" instead".format(self.token.lexeme))
+
+        if not self.eat(Tag.SYMBOL_SEMICOLON):
+            self.skip("Expected \";\", found \"{}\" instead".format(self.token.lexeme))
 
     def cmd_leia(self):
-        pass
+        if not self.eat(Tag.KEYWORD_READ):
+            self.skip("Expected \"leia\", found \"{}\" instead".format(self.token.lexeme))
+
+        if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
+            self.skip("Expected \"(\", found \"{}\" instead".format(self.token.lexeme))
+
+        if not self.eat(Tag.ID):
+            self.skip("Expected an \"ID\", found \"{}\" instead".format(self.token.lexeme))
+
+        if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
+            self.skip("Expected \")\", found \"{}\" instead".format(self.token.lexeme))
+
+        if not self.eat(Tag.SYMBOL_SEMICOLON):
+            self.skip("Expected \";\", found \"{}\" instead".format(self.token.lexeme))
 
     def expressao(self):
-        pass
+        self.exp1()
+        self.exp_linha()
 
     def exp_linha(self):
         pass
 
     def exp1(self):
-        pass
+        self.exp2()
+        self.exp1_linha()
 
     def exp1_linha(self):
         pass
 
     def exp2(self):
-        pass
+        self.exp3()
+        self.exp2_linha()
 
     def exp2_linha(self):
         pass
 
     def exp3(self):
-        pass
+        self.exp4()
+        self.exp3_linha()
 
     def exp3_linha(self):
         pass
@@ -227,7 +299,8 @@ class Parser:
         pass
 
     def op_unario(self):
-        pass
+        if not self.eat(Tag.KEYWORD_NOT):
+            self.skip("Expected \"Nao\", found \"{}\" instead".format(self.token.lexeme))
 
 
 
