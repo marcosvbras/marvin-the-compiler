@@ -12,8 +12,8 @@ class Parser:
         print("[Syntax Error] at {}:{} {}\n".format(self.token.line, self.token.column, message))
 
     def advance(self):
-        token = self.lexer.next_token()
-        print("[DEBUG]" + str(token))
+        self.token = self.lexer.next_token()
+        print("[DEBUG]" + str(self.token))
 
     def skip(self, message):
         self.raise_syntax_error(message)
@@ -483,8 +483,8 @@ class Parser:
             return
         elif self.token.tag == Tag.ID or self.token.tag == Tag.SYMBOL_OPEN_PARENTHESIS \
                 or self.token.tag == Tag.KEYWORD_NOT or self.token.tag == Tag.KEYWORD_TRUE \
-                or self.token.tag == Tag.KEYWORD_FALSE or self.token.tag == Tag.KEYWORD_NUMERIC \
-                or self.token.tag == Tag.KEYWORD_STRING:
+                or self.token.tag == Tag.KEYWORD_FALSE or self.token.tag == Tag.VALUE_NUMERICO \
+                or self.token.tag == Tag.VALUE_LITERAL:
             self.expressao()
             self.regex_exp_linha()
         else:
@@ -555,8 +555,8 @@ class Parser:
     def expressao(self):
         if self.token.tag == Tag.ID or self.token.tag == Tag.SYMBOL_OPEN_PARENTHESIS \
                 or self.token.tag == Tag.KEYWORD_NOT or self.token.tag == Tag.KEYWORD_TRUE \
-                or self.token.tag == Tag.KEYWORD_FALSE or self.token.tag == Tag.KEYWORD_NUMERIC \
-                or self.token.tag == Tag.KEYWORD_STRING:
+                or self.token.tag == Tag.KEYWORD_FALSE or self.token.tag == Tag.VALUE_NUMERICO \
+                or self.token.tag == Tag.VALUE_LITERAL:
             self.exp1()
             self.exp_linha()
         else:
@@ -610,68 +610,218 @@ class Parser:
             if self.token.tag is not Tag.END_OF_FILE:
                 self.exp_linha()
 
-    # Exp 1 → Exp 2 Exp 1 ’ 58
+    # Exp 1 → Exp2 Exp1’ 58
     def exp1(self):
-        self.exp2()
-        self.exp1_linha()
+        if self.token.tag == Tag.ID or self.token.tag == Tag.SYMBOL_OPEN_PARENTHESIS \
+                or self.token.tag == Tag.KEYWORD_NOT or self.token.tag == Tag.KEYWORD_TRUE \
+                or self.token.tag == Tag.KEYWORD_FALSE or self.token.tag == Tag.VALUE_NUMERICO \
+                or self.token.tag == Tag.VALUE_LITERAL:
+            self.exp2()
+            self.exp1_linha()
+        else:
+            self.skip(self.messageFormat.format("ID, (, nao, verdadeiro, falso, numerico, literal", self.token.lexeme))
+
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.exp1()
 
     # Exp1’ → E Exp2 Exp1’ 59 | Ou Exp2 Exp1’ 60| ε 61
     def exp1_linha(self):
-        pass
+        if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.SYMBOL_SEMICOLON \
+                or self.token.tag == Tag.ID or self.token.tag == Tag.SYMBOL_CLOSE_PARENTHESIS \
+                or self.token.tag == Tag.SYMBOL_COMMA or self.token.tag == Tag.KEYWORD_RETURN \
+                or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                or self.token.tag == Tag.KEYWORD_DO or self.token.tag == Tag.KEYWORD_FOR \
+                or self.token.tag == Tag.KEYWORD_UNTIL or self.token.tag == Tag.KEYWORD_REPEAT \
+                or self.token.tag == Tag.KEYWORD_WRITE or self.token.tag == Tag.KEYWORD_READ \
+                or self.token.tag == Tag.OPERATOR_LESS_THAN or self.token.tag == Tag.OPERATOR_LESS_THAN_EQUALS \
+                or self.token.tag == Tag.OPERATOR_GREATER_THAN or self.token.tag == Tag.OPERATOR_GREATER_THAN_EQUALS \
+                or self.token.tag == Tag.OPERATOR_EQUALS or self.token.tag == Tag.OPERATOR_DIFFERENT:
+            return
+        elif self.token.tag == Tag.KEYWORD_AND:
+            self.eat(Tag.KEYWORD_AND)
+            self.exp2()
+            self.exp1_linha()
+        elif self.token.tag == Tag.KEYWORD_OR:
+            self.eat(Tag.KEYWORD_OR)
+            self.exp2()
+            self.exp1_linha()
+        else:
+            self.skip(
+                self.messageFormat.format(
+                    "fim, ;, ID, ), ,, retorne, se, enquanto, faca, para, ate, repita, escreva, leia, <, <=, >, >=, =, <>, E, Ou",
+                    self.token.lexeme
+                )
+            )
+
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.exp1_linha()
 
     # Exp2 → Exp3 Exp2’ 62
     def exp2(self):
-        self.exp3()
-        self.exp2_linha()
+        if self.token.tag == Tag.ID or self.token.tag == Tag.SYMBOL_OPEN_PARENTHESIS \
+                or self.token.tag == Tag.KEYWORD_NOT or self.token.tag == Tag.KEYWORD_TRUE \
+                or self.token.tag == Tag.KEYWORD_FALSE or self.token.tag == Tag.VALUE_NUMERICO \
+                or self.token.tag == Tag.VALUE_LITERAL:
+            self.exp3()
+            self.exp2_linha()
+        else:
+            self.skip(self.messageFormat.format("ID, (, Nao, verdadeiro, falso, numerico, literal", self.token.lexeme))
+
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.exp2()
 
     # Exp2’ → + Exp3 Exp2’ 63 | - Exp3 Exp2’ 64 | ε 65
     def exp2_linha(self):
-        pass
+        if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.SYMBOL_SEMICOLON \
+                or self.token.tag == Tag.ID or self.token.tag == Tag.SYMBOL_CLOSE_PARENTHESIS \
+                or self.token.tag == Tag.SYMBOL_COMMA or self.token.tag == Tag.KEYWORD_RETURN \
+                or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                or self.token.tag == Tag.KEYWORD_DO or self.token.tag == Tag.KEYWORD_FOR \
+                or self.token.tag == Tag.KEYWORD_UNTIL or self.token.tag == Tag.KEYWORD_REPEAT \
+                or self.token.tag == Tag.KEYWORD_WRITE or self.token.tag == Tag.KEYWORD_READ \
+                or self.token.tag == Tag.KEYWORD_AND or self.token.tag == Tag.KEYWORD_OR \
+                or self.token.tag == Tag.OPERATOR_LESS_THAN or self.token.tag == Tag.OPERATOR_LESS_THAN_EQUALS \
+                or self.token.tag == Tag.OPERATOR_GREATER_THAN or self.token.tag == Tag.OPERATOR_GREATER_THAN_EQUALS \
+                or self.token.tag == Tag.OPERATOR_EQUALS or self.token.tag == Tag.OPERATOR_DIFFERENT:
+            return
+        elif self.token.tag == Tag.OPERATOR_PLUS:
+            self.eat(Tag.OPERATOR_PLUS)
+            self.exp3()
+            self.exp2_linha()
+        elif self.token.tag == Tag.OPERATOR_MINUS:
+            self.eat(Tag.OPERATOR_MINUS)
+            self.exp3()
+            self.exp2_linha()
+        else:
+            self.skip(
+                self.messageFormat.format(
+                    "fim, ;, ID, ), ,, retorne, se, enquanto, faca, para, ate, repita, escreva, leia, E, Ou, <, <=, >, >=, =, <>, +, -",
+                    self.token.lexeme
+                )
+            )
+
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.exp2_linha()
 
     # Exp3 → Exp4 Exp3’ 66
     def exp3(self):
-        self.exp4()
-        self.exp3_linha()
+        if self.token.tag == Tag.ID or self.token.tag == Tag.SYMBOL_OPEN_PARENTHESIS \
+                or self.token.tag == Tag.KEYWORD_NOT or self.token.tag == Tag.KEYWORD_TRUE \
+                or self.token.tag == Tag.KEYWORD_FALSE or self.token.tag == Tag.VALUE_NUMERICO \
+                or self.token.tag == Tag.VALUE_LITERAL:
+            self.exp4()
+            self.exp3_linha()
+        else:
+            self.skip(
+                self.messageFormat.format("ID, (, Nao, verdadeiro, falso, numerico, literal", self.token.lexeme)
+            )
+
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.exp3()
 
     # Exp3’ →* Exp4 Exp3’ 67 | / Exp4 Exp3’ 68 | ε 69
     def exp3_linha(self):
-        pass
+        if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.SYMBOL_SEMICOLON \
+                or self.token.tag == Tag.ID or self.token.tag == Tag.SYMBOL_CLOSE_PARENTHESIS \
+                or self.token.tag == Tag.SYMBOL_COMMA or self.token.tag == Tag.KEYWORD_RETURN \
+                or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                or self.token.tag == Tag.KEYWORD_DO or self.token.tag == Tag.KEYWORD_FOR \
+                or self.token.tag == Tag.KEYWORD_UNTIL or self.token.tag == Tag.KEYWORD_REPEAT \
+                or self.token.tag == Tag.KEYWORD_WRITE or self.token.tag == Tag.KEYWORD_READ \
+                or self.token.tag == Tag.KEYWORD_AND or self.token.tag == Tag.KEYWORD_OR \
+                or self.token.tag == Tag.OPERATOR_LESS_THAN or self.token.tag == Tag.OPERATOR_LESS_THAN_EQUALS \
+                or self.token.tag == Tag.OPERATOR_GREATER_THAN or self.token.tag == Tag.OPERATOR_GREATER_THAN_EQUALS \
+                or self.token.tag == Tag.OPERATOR_EQUALS or self.token.tag == Tag.OPERATOR_DIFFERENT \
+                or self.token.tag == Tag.OPERATOR_PLUS or self.token.tag == Tag.OPERATOR_MINUS:
+            return
+        elif self.token.tag == Tag.OPERATOR_DIVISION:
+            self.eat(Tag.OPERATOR_DIVISION)
+            self.exp4()
+            self.exp3_linha()
+        elif self.token.tag == Tag.OPERATOR_MULTIPLICATION:
+            self.eat(Tag.OPERATOR_MULTIPLICATION)
+            self.exp4()
+            self.exp3_linha()
+        else:
+            self.skip(
+                self.messageFormat.format(
+                    "fim, ;, ID, ), ,, retorne, se, enquanto, faca, para, ate, repita, escreva, leia, E, Ou, <, <=, >, >=, =, <>, +, -, /, *",
+                    self.token.lexeme
+                )
+            )
+
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.exp3_linha()
 
     # Exp4 → id Exp4’ 70 | Numerico 71 | Litetal 72 | “verdadeiro” 73 | “falso” 74 | OpUnario Expressao 75| “(“ Expressao “)” 76
     def exp4(self):
-        pass
+        if self.token.tag == Tag.ID:
+            self.eat(Tag.ID)
+            self.exp4_linha()
+        elif self.token.tag == Tag.SYMBOL_OPEN_PARENTHESIS:
+            self.eat(Tag.SYMBOL_OPEN_PARENTHESIS)
+            self.expressao()
+
+            if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
+                self.raise_syntax_error(self.messageFormat.format(")", self.token.lexeme))
+        elif self.token.tag == Tag.KEYWORD_NOT:
+            self.op_unario()
+            self.expressao()
+        elif self.token.tag == Tag.KEYWORD_TRUE:
+            self.eat(Tag.KEYWORD_TRUE)
+        elif self.token.tag == Tag.KEYWORD_FALSE:
+            self.eat(Tag.KEYWORD_FALSE)
+        elif self.token.tag == Tag.VALUE_NUMERICO:
+            self.eat(Tag.VALUE_NUMERICO)
+        elif self.token.tag == Tag.VALUE_LITERAL:
+            self.eat(Tag.VALUE_LITERAL)
+        else:
+            self.skip(
+                self.messageFormat.format("(, ID, Nao, verdadeiro, falso, Numerico, Literal", self.token.lexeme)
+            )
+
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.exp4()
 
     # Exp4’ → “(“ RegexExp ”)” 77 | ε 78
     def exp4_linha(self):
-        pass
+        if self.token.tag == Tag.KEYWORD_DECLARE or self.token.tag == Tag.SYMBOL_SEMICOLON \
+                or self.token.tag == Tag.ID or self.token.tag == Tag.SYMBOL_CLOSE_PARENTHESIS \
+                or self.token.tag == Tag.SYMBOL_COMMA or self.token.tag == Tag.KEYWORD_RETURN \
+                or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                or self.token.tag == Tag.KEYWORD_DO or self.token.tag == Tag.KEYWORD_FOR \
+                or self.token.tag == Tag.KEYWORD_UNTIL or self.token.tag == Tag.KEYWORD_REPEAT \
+                or self.token.tag == Tag.KEYWORD_WRITE or self.token.tag == Tag.KEYWORD_READ \
+                or self.token.tag == Tag.KEYWORD_AND or self.token.tag == Tag.KEYWORD_OR \
+                or self.token.tag == Tag.OPERATOR_LESS_THAN or self.token.tag == Tag.OPERATOR_LESS_THAN_EQUALS \
+                or self.token.tag == Tag.OPERATOR_GREATER_THAN or self.token.tag == Tag.OPERATOR_GREATER_THAN_EQUALS \
+                or self.token.tag == Tag.OPERATOR_EQUALS or self.token.tag == Tag.OPERATOR_DIFFERENT \
+                or self.token.tag == Tag.OPERATOR_PLUS or self.token.tag == Tag.OPERATOR_MINUS \
+                or self.token.tag == Tag.OPERATOR_DIVISION or self.token.tag == Tag.OPERATOR_MULTIPLICATION:
+            return
+        elif self.token.tag == Tag.SYMBOL_OPEN_PARENTHESIS:
+            self.eat(Tag.SYMBOL_OPEN_PARENTHESIS)
+            self.regex_exp()
+
+            if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
+                self.raise_syntax_error(self.messageFormat.format(")", self.token.lexeme))
+        else:
+            self.skip(
+                self.messageFormat.format(
+                    "(, declare, ;, ID, ), ,, retorne, se, enquanto, faca, para, ate, repita, escreva, leia, E, Ou, <, <=, >, >=, =, <>, +, -, /, *",
+                    self.token.lexeme
+                )
+            )
+
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.exp4_linha()
 
     # OpUnario → "Nao" 79
     def op_unario(self):
-        if not self.eat(Tag.KEYWORD_NOT):
-            self.skip("Expected \"Nao\", found \"{}\" instead".format(self.token.lexeme))
+        if self.token.tag == Tag.KEYWORD_NOT:
+            self.eat(Tag.KEYWORD_NOT)
+        else:
+            self.skip(self.messageFormat.format("Nao", self.token.lexeme))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.op_unario()
