@@ -11,7 +11,7 @@ class SymbolTable:
         self.table["fim"] = Token(Tag.KEYWORD_END, "fim")
         self.table["se"] = Token(Tag.KEYWORD_IF, "se")
         self.table["inicio"] = Token(Tag.KEYWORD_BEGIN, "inicio")
-        self.table["senao"] = Token(Tag.KEYWORD_ELSE_IF, "senao")
+        self.table["senao"] = Token(Tag.KEYWORD_ELSE, "senao")
         self.table["enquanto"] = Token(Tag.KEYWORD_WHILE, "enquanto")
         self.table["faca"] = Token(Tag.KEYWORD_DO, "faca")
         self.table["para"] = Token(Tag.KEYWORD_FOR, "para")

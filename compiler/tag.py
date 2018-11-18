@@ -11,7 +11,7 @@ class Tag(Enum):
     KEYWORD_END = auto()
     KEYWORD_IF = auto()
     KEYWORD_BEGIN = auto()
-    KEYWORD_ELSE_IF = auto()
+    KEYWORD_ELSE = auto()
     KEYWORD_WHILE = auto()
     KEYWORD_DO = auto()
     KEYWORD_FOR = auto()
@@ -60,4 +60,3 @@ class Tag(Enum):
     VALUE_NUMERICO = auto()
     VALUE_LOGICO = auto()
     VALUE_LITERAL = auto()
-    VALUE_NULO = auto()

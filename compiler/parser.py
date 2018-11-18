@@ -6,10 +6,10 @@ class Parser:
     def __init__(self, lexer):
         self.lexer = lexer
         self.token = lexer.next_token()
+        self.messageFormat = "Expected \"{}\", found \"{}\" instead"
 
     def raise_syntax_error(self, message):
-        print("[Erro Sintatico] na linha " + self.token.line + " e coluna " + self.token.column + ": ")
-        print(message + "\n")
+        print("[Syntax Error] at {}:{} {}\n".format(self.token.line, self.token.column, message))
 
     def advance(self):
         token = self.lexer.next_token()
@@ -26,278 +26,626 @@ class Parser:
 
         return False
 
+    # Compilador → Programa $ 1
     def compilador(self):
-        if self.token.tag == Tag.KEYWORD_ALGORITHM:
-            self.skip("Expected \"algoritmo\", found \"{}\" instead".format(self.token.lexeme))
+        if self.token.tag != Tag.KEYWORD_ALGORITHM:
+            self.skip(self.messageFormat.format("algoritmo", self.token.lexeme))
 
         self.programa()
 
+    # Programa → "algoritmo" RegexDeclVar ListaCmd "fim" "algoritmo" ListaRotina 2
     def programa(self):
         if not self.eat(Tag.KEYWORD_ALGORITHM):
-            self.skip("Expected \"algoritmo\", found \"{}\" instead".format(self.token.lexeme))
+            self.skip(self.messageFormat.format("algoritmo", self.token.lexeme))
 
         self.regex_decl_var()
         self.lista_cmd()
 
         if not self.eat(Tag.KEYWORD_END):
-            self.skip("Expected \"fim\", found \"{}\" instead".format(self.token.lexeme))
+            self.raise_syntax_error(self.messageFormat.format("fim", self.token.lexeme))
 
         if not self.eat(Tag.KEYWORD_ALGORITHM):
-            self.skip("Expected \"algoritmo\", found \"{}\" instead".format(self.token.lexeme))
+            self.raise_syntax_error(self.messageFormat.format("algoritmo", self.token.lexeme))
 
         self.lista_rotina()
 
+    # RegexDeclVar → “declare” Tipo ListaID";" DeclaraVar 3 | ε 4
     def regex_decl_var(self):
-        pass
+        if self.token.tag == Tag.KEYWORD_DECLARE:
+            self.eat(Tag.KEYWORD_DECLARE)
+            self.tipo()
+            self.lista_id()
 
+            if not self.eat(Tag.SYMBOL_SEMICOLON):
+                self.raise_syntax_error(self.messageFormat.format(";", self.token.lexeme))
+
+            self.declara_var()
+        elif self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.ID or self.token.tag == Tag.KEYWORD_RETURN \
+                or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                or self.token.tag == Tag.KEYWORD_FOR or self.token.tag == Tag.KEYWORD_REPEAT \
+                or self.token.tag == Tag.KEYWORD_WRITE or self.token.tag == Tag.KEYWORD_READ:
+            return
+        else:
+            self.skip(
+                self.messageFormat.format(
+                    "declare, fim, ID, retorne, se, enquanto, para, repita, escreva, leia", self.token.lexeme)
+            )
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.regex_decl_var()
+
+    # DeclaraVar → Tipo ListaID ";" DeclaraVar 5 | ε 6
     def declara_var(self):
-        pass
+        if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.ID or self.token.tag == Tag.KEYWORD_RETURN \
+                or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                or self.token.tag == Tag.KEYWORD_FOR or self.token.tag == Tag.KEYWORD_REPEAT \
+                or self.token.tag == Tag.KEYWORD_WRITE or self.token.tag == Tag.KEYWORD_READ:
+            return
+        elif self.token.tag == Tag.KEYWORD_BOOLEAN or self.token.tag == Tag.KEYWORD_NUMERIC \
+                or self.token.tag == Tag.KEYWORD_STRING or self.token.tag == Tag.KEYWORD_NULL:
+            self.tipo()
+            self.lista_id()
 
+            if not self.eat(Tag.SYMBOL_SEMICOLON):
+                self.raise_syntax_error(self.messageFormat.format(";", self.token.lexeme))
+
+            self.declara_var()
+        else:
+            self.skip(
+                self.messageFormat.format(
+                    "fim, ID, retorne, se, enquanto, para, repita, escreva, leia, logico, numerico, literal, nulo",
+                    self.token.lexeme
+                )
+            )
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.declara_var()
+
+    # ListaRotina → ListaRotina’ 7
     def lista_rotina(self):
-        self.lista_rotina_linha()
+        if self.token.tag == Tag.KEYWORD_SUBROUTINE or self.token.tag == Tag.END_OF_FILE:
+            self.lista_rotina_linha()
+        else:
+            self.skip(self.messageFormat.format("subrotina", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.lista_rotina()
+
+    # ListaRotina’ → Rotina ListaRotina’ 8 | ε 9
     def lista_rotina_linha(self):
-        pass
+        if self.token.tag == Tag.KEYWORD_SUBROUTINE:
+            self.rotina()
+            self.lista_rotina_linha()
+        elif self.token.tag == Tag.END_OF_FILE:
+            return
+        else:
+            self.skip(self.messageFormat.format("subrotina", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.lista_rotina_linha()
+
+    # Rotina → "subrotina" ID "(" ListaParam ")" RegexDeclVar ListaCmd Retorno "fim" "subrotina" 10
     def rotina(self):
-        if not self.eat(Tag.KEYWORD_SUBROUTINE):
-            self.skip("Expected \"subrotina\", found \"{}\" instead".format(self.token.lexeme))
+        if self.token.tag == Tag.KEYWORD_SUBROUTINE:
+            self.eat(Tag.KEYWORD_SUBROUTINE)
 
-        if not self.eat(Tag.ID):
-            self.skip("Expected an \"ID\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.ID):
+                self.raise_syntax_error(self.messageFormat.format("ID", self.token.lexeme))
 
-        if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
-            self.skip("Expected \"(\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
+                self.raise_syntax_error(self.messageFormat.format("(", self.token.lexeme))
 
-        self.lista_param()
+            self.lista_param()
 
-        if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
-            self.skip("Expected \")\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
+                self.raise_syntax_error(self.messageFormat.format(")", self.token.lexeme))
 
-        self.regex_decl_var()
-        self.lista_cmd()
-        self.retorno()
+            self.regex_decl_var()
+            self.lista_cmd()
+            self.retorno()
 
-        if not self.eat(Tag.KEYWORD_END):
-            self.skip("Expected \"fim\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.KEYWORD_END):
+                self.raise_syntax_error(self.messageFormat.format("fim", self.token.lexeme))
 
-        if not self.eat(Tag.KEYWORD_SUBROUTINE):
-            self.skip("Expected \"subrotina\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.KEYWORD_SUBROUTINE):
+                self.skip(self.messageFormat.format("subrotina", self.token.lexeme))
+        else:
+            self.raise_syntax_error(self.messageFormat.format("subrotina", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.rotina()
+
+    # ListaParam → Param ListaParam’ 11
     def lista_param(self):
-        self.param()
-        self.lista_param()
+        if self.token.tag == Tag.ID:
+            self.eat(Tag.ID)
+            self.param()
+            self.lista_param()
+        else:
+            self.skip(self.messageFormat.format("ID", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.rotina()
+
+    # ListaParam’ → "," ListaParam 12 | ε 13
     def lista_param_linha(self):
-        pass
+        if self.token.tag == Tag.SYMBOL_CLOSE_PARENTHESIS:
+            return
+        elif self.token.tag == Tag.SYMBOL_COMMA:
+            self.eat(Tag.SYMBOL_COMMA)
+            self.lista_param()
+        else:
+            self.skip(self.messageFormat.format("), ,", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.lista_param_linha()
+
+    # Param → ListaID Tipo 14
     def param(self):
-        self.lista_id()
-        self.tipo()
+        if self.token.tag == Tag.ID:
+            self.lista_id()
+            self.tipo()
+        else:
+            self.skip(self.messageFormat.format("ID", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.param()
+
+    # ListaID → ID ListaID’ 15
     def lista_id(self):
-        if not self.eat(Tag.ID):
-            self.skip("Expected an \"ID\", found \"{}\" instead".format(self.token.lexeme))
+        if self.token.tag == Tag.ID:
+            self.eat(Tag.ID)
+            self.lista_id_linha()
+        else:
+            self.skip(self.messageFormat.format("ID", self.token.lexeme))
 
-        self.lista_id()
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.lista_id()
 
+    # ListaID’ → "," ListaID 16 | ε 17
     def lista_id_linha(self):
-        pass
+        if self.token.tag == Tag.SYMBOL_SEMICOLON or self.token.tag == Tag.KEYWORD_BOOLEAN \
+                or self.token.tag == Tag.KEYWORD_NUMERIC or self.token.tag == Tag.KEYWORD_STRING \
+                or self.token.tag == Tag.KEYWORD_NULL:
+            return
+        elif self.token.tag == Tag.SYMBOL_COMMA:
+            self.eat(Tag.SYMBOL_COMMA)
+            self.lista_id()
+        else:
+            self.skip(self.messageFormat.format(";, ,, logico, numerico, literal, nulo", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.lista_id_linha()
+
+    # Retorno → "retorne" Expressao 18 | ε 19
     def retorno(self):
-        pass
+        if self.token.tag == Tag.KEYWORD_END:
+            return
+        elif self.token.tag == Tag.KEYWORD_RETURN:
+            self.eat(Tag.KEYWORD_RETURN)
+            self.expressao()
+        else:
+            self.skip(self.messageFormat.format("fim, retorne", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.retorno()
+
+    # Tipo → "logico" 20 | "numerico" 21 | "literal" 22 | "nulo" 23
     def tipo(self):
-        pass
+        if self.token.tag == Tag.KEYWORD_BOOLEAN:
+            self.eat(Tag.KEYWORD_BOOLEAN)
+        elif self.token.tag == Tag.KEYWORD_NUMERIC:
+            self.eat(Tag.KEYWORD_NUMERIC)
+        elif self.token.tag == Tag.KEYWORD_STRING:
+            self.eat(Tag.KEYWORD_STRING)
+        elif self.token.tag == Tag.KEYWORD_NULL:
+            self.eat(Tag.KEYWORD_NULL)
+        else:
+            self.skip(self.messageFormat.format("logico, numerico, literal, nulo", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.tipo()
+
+    # ListaCmd → ListaCmd’ 24
     def lista_cmd(self):
-        self.lista_cmd_linha()
+        if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.ID or self.token.tag == Tag.KEYWORD_RETURN \
+                or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                or self.token.tag == Tag.KEYWORD_FOR or self.token.tag == Tag.KEYWORD_UNTIL \
+                or self.token.tag == Tag.KEYWORD_REPEAT or self.token.tag == Tag.KEYWORD_WRITE \
+                or self.token.tag == Tag.KEYWORD_READ:
+            self.lista_cmd_linha()
+        else:
+            self.skip(
+                self.messageFormat.format("fim, ID, retorne, se, enquanto, para, ate, repita, escreva, leia", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.lista_cmd()
+
+    # ListaCmd’ → Cmd ListaCmd’ 25 | ε 26
     def lista_cmd_linha(self):
-        pass
+        if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.KEYWORD_RETURN or self.token.tag == Tag.KEYWORD_UNTIL:
+            return
+        elif self.token.tag == Tag.ID or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                or self.token.tag == Tag.KEYWORD_FOR or self.token.tag == Tag.KEYWORD_REPEAT \
+                or self.token.tag == Tag.KEYWORD_WRITE or self.token.tag == Tag.KEYWORD_READ:
+            self.cmd()
+            self.lista_cmd_linha()
+        else:
+            self.skip(
+                self.messageFormat.format(
+                    "fim, retorne, ate, ID, se, enquanto, para, repita, escreva, leia", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.lista_cmd_linha()
+
+    # Cmd → CmdSe 27 | CmdEnquanto 28 | CmdPara 29 | CmdRepita 30 | ID Cmd’ 31 | CmdEscreva 32 | CmdLeia 33
     def cmd(self):
-        pass
+        if self.token.tag == Tag.ID:
+            self.eat(Tag.ID)
+            self.cmd_linha()
+        elif self.token.tag == Tag.KEYWORD_IF:
+            self.cmd_se()
+        elif self.token.tag == Tag.KEYWORD_WHILE:
+            self.cmd_enquanto()
+        elif self.token.tag == Tag.KEYWORD_FOR:
+            self.cmd_para()
+        elif self.token.tag == Tag.KEYWORD_REPEAT:
+            self.cmd_repita()
+        elif self.token.tag == Tag.KEYWORD_WRITE:
+            self.cmd_escreva()
+        elif self.token.tag == Tag.KEYWORD_READ:
+            self.cmd_leia()
+        else:
+            self.skip(
+                self.messageFormat.format("ID, se, enquanto, para, repita, escreva, leia", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.cmd()
+
+    # Cmd’ → CmdAtrib 34 | CmdChamaRotina 35
     def cmd_linha(self):
-        pass
+        if self.token.tag == Tag.SYMBOL_OPEN_PARENTHESIS:
+            self.cmd_chama_rotina()
+        elif self.token.tag == Tag.OPERATOR_ASSIGN:
+            self.cmd_atrib()
+        else:
+            self.skip(
+                self.messageFormat.format("(, <--", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.cmd_linha()
+
+    # CmdSe → "se" "(" Expressao ")" "inicio" ListaCmd "fim" CmdSe’ 36
     def cmd_se(self):
-        if not self.eat(Tag.KEYWORD_IF):
-            self.skip("Expected \"se\", found \"{}\" instead".format(self.token.lexeme))
+        if self.token.tag == Tag.KEYWORD_IF:
+            self.eat(Tag.KEYWORD_IF)
 
-        if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
-            self.skip("Expected \"(\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
+                self.raise_syntax_error(self.messageFormat.format("(", self.token.lexeme))
 
-        self.expressao()
+            self.expressao()
 
-        if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
-            self.skip("Expected \")\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
+                self.raise_syntax_error(self.messageFormat.format(")", self.token.lexeme))
 
-        if not self.eat(Tag.KEYWORD_BEGIN):
-            self.skip("Expected \"inicio\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.KEYWORD_BEGIN):
+                self.raise_syntax_error(self.messageFormat.format("inicio", self.token.lexeme))
 
-        self.lista_cmd()
+            self.lista_cmd()
 
-        if not self.eat(Tag.KEYWORD_END):
-            self.skip("Expected \"fim\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.KEYWORD_END):
+                self.raise_syntax_error(self.messageFormat.format("fim", self.token.lexeme))
 
-        self.cmd_se_linha()
+            self.cmd_se_linha()
+        else:
+            self.skip(
+                self.messageFormat.format("se", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.cmd_se()
+
+    # CmdSe’ → "senao" "inicio" ListaCmd "fim" 37 | ε 38
     def cmd_se_linha(self):
-        pass
+        if self.token.tag == Tag.KEYWORD_ELSE:
+            self.eat(Tag.KEYWORD_ELSE)
 
+            if not self.eat(Tag.KEYWORD_BEGIN):
+                self.raise_syntax_error(self.messageFormat.format("inicio", self.token.lexeme))
+
+            self.lista_cmd()
+
+            if not self.eat(Tag.KEYWORD_END):
+                self.raise_syntax_error(self.messageFormat.format("fim", self.token.lexeme))
+        elif self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.ID or self.token.tag == Tag.KEYWORD_RETURN \
+                or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                or self.token.tag == Tag.KEYWORD_FOR or self.token.tag == Tag.KEYWORD_UNTIL \
+                or self.token.tag == Tag.KEYWORD_REPEAT or self.token.tag == Tag.KEYWORD_WRITE \
+                or self.token.tag == Tag.KEYWORD_READ:
+            return
+        else:
+            self.skip(
+                self.messageFormat.format(
+                    "senao, fim, ID, retorne, se, enquanto, para, ate, repita, escreva, leia", self.token.lexeme))
+
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.cmd_se_linha()
+
+    # CmdEnquanto → "enquanto" "(" Expressao ")" "faca" "inicio" ListaCmd "fim" 39
     def cmd_enquanto(self):
-        if not self.eat(Tag.KEYWORD_WHILE):
-            self.skip("Expected \"enquanto\", found \"{}\" instead".format(self.token.lexeme))
+        if self.token.tag == Tag.KEYWORD_WHILE:
+            self.eat(Tag.KEYWORD_WHILE)
 
-        if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
-            self.skip("Expected \"(\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
+                self.raise_syntax_error(self.messageFormat.format("(", self.token.lexeme))
 
-        self.expressao()
+            self.expressao()
 
-        if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
-            self.skip("Expected \")\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
+                self.raise_syntax_error(self.messageFormat.format(")", self.token.lexeme))
 
-        if not self.eat(Tag.KEYWORD_DO):
-            self.skip("Expected \"faca\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.KEYWORD_DO):
+                self.raise_syntax_error(self.messageFormat.format("faca", self.token.lexeme))
 
-        if not self.eat(Tag.KEYWORD_BEGIN):
-            self.skip("Expected \"inicio\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.KEYWORD_BEGIN):
+                self.raise_syntax_error(self.messageFormat.format("inicio", self.token.lexeme))
 
-        self.lista_cmd()
+            self.lista_cmd()
 
-        if not self.eat(Tag.KEYWORD_END):
-            self.skip("Expected \"fim\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.KEYWORD_END):
+                self.raise_syntax_error(self.messageFormat.format("fim", self.token.lexeme))
+        else:
+            self.skip(self.messageFormat.format("enquanto", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.cmd_enquanto()
+
+    # CmdPara → "para" ID CmdAtrib "ate" Expressao "faca" "inicio" ListaCmd "fim" 40
     def cmd_para(self):
-        if not self.eat(Tag.KEYWORD_FOR):
-            self.skip("Expected \"para\", found \"{}\" instead".format(self.token.lexeme))
+        if self.token.tag == Tag.KEYWORD_FOR:
+            self.eat(Tag.KEYWORD_FOR)
 
-        if not self.eat(Tag.ID):
-            self.skip("Expected an \"ID\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.ID):
+                self.raise_syntax_error(self.messageFormat.format("ID", self.token.lexeme))
 
-        self.cmd_atrib()
+            self.cmd_atrib()
 
-        if not self.eat(Tag.KEYWORD_UNTIL):
-            self.skip("Expected \"ate\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.KEYWORD_UNTIL):
+                self.raise_syntax_error(self.messageFormat.format("ate", self.token.lexeme))
 
-        self.expressao()
+            self.expressao()
 
-        if not self.eat(Tag.KEYWORD_DO):
-            self.skip("Expected \"faca\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.KEYWORD_DO):
+                self.raise_syntax_error(self.messageFormat.format("faca", self.token.lexeme))
 
-        if not self.eat(Tag.KEYWORD_BEGIN):
-            self.skip("Expected \"inicio\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.KEYWORD_BEGIN):
+                self.raise_syntax_error(self.messageFormat.format("inicio", self.token.lexeme))
 
-        self.lista_cmd()
+            self.lista_cmd()
 
-        if not self.eat(Tag.KEYWORD_END):
-            self.skip("Expected \"fim\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.KEYWORD_END):
+                self.raise_syntax_error(self.messageFormat.format("fim", self.token.lexeme))
+        else:
+            self.skip(self.messageFormat.format("para", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.cmd_para()
+
+    # CmdRepita → "repita" ListaCmd "ate" Expressao 41
     def cmd_repita(self):
-        if not self.eat(Tag.KEYWORD_REPEAT):
-            self.skip("Expected \"repita\", found \"{}\" instead".format(self.token.lexeme))
+        if self.token.tag == Tag.KEYWORD_REPEAT:
+            self.eat(Tag.KEYWORD_REPEAT)
+            self.lista_cmd()
 
-        self.lista_cmd()
+            if not self.eat(Tag.KEYWORD_UNTIL):
+                self.raise_syntax_error(self.messageFormat.format("ate", self.token.lexeme))
 
-        if not self.eat(Tag.KEYWORD_UNTIL):
-            self.skip("Expected \"ate\", found \"{}\" instead".format(self.token.lexeme))
+            self.expressao()
+        else:
+            self.skip(self.messageFormat.format("repita", self.token.lexeme))
 
-        self.expressao()
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.cmd_repita()
 
+    # CmdAtrib → "<--" Expressao ";" 42
     def cmd_atrib(self):
-        if not self.eat(Tag.OPERATOR_ASSIGN):
-            self.skip("Expected \"<--\", found \"{}\" instead".format(self.token.lexeme))
+        if self.token.tag == Tag.OPERATOR_ASSIGN:
+            self.eat(Tag.OPERATOR_ASSIGN)
 
-        self.expressao()
+            self.expressao()
 
-        if not self.eat(Tag.SYMBOL_SEMICOLON):
-            self.skip("Expected \";\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_SEMICOLON):
+                self.raise_syntax_error(self.messageFormat.format(";", self.token.lexeme))
+        else:
+            self.skip(self.messageFormat.format("<--", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.cmd_atrib()
+
+    # CmdChamaRotina → "(" RegexExp ")" ";" 43
     def cmd_chama_rotina(self):
-        if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
-            self.skip("Expected \"(\", found \"{}\" instead".format(self.token.lexeme))
+        if self.token.tag == Tag.SYMBOL_OPEN_PARENTHESIS:
+            self.eat(Tag.SYMBOL_OPEN_PARENTHESIS)
 
-        self.regex_exp()
+            self.regex_exp()
 
-        if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
-            self.skip("Expected \")\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
+                self.raise_syntax_error(self.messageFormat.format(")", self.token.lexeme))
 
-        if not self.eat(Tag.SYMBOL_SEMICOLON):
-            self.skip("Expected \";\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_SEMICOLON):
+                self.raise_syntax_error(self.messageFormat.format(";", self.token.lexeme))
+        else:
+            self.skip(self.messageFormat.format("(", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.cmd_chama_rotina()
+
+    # RegexExp → Expressao RegexExp’ 44 | ε 45
     def regex_exp(self):
-        pass
+        if self.token.tag == Tag.SYMBOL_CLOSE_PARENTHESIS:
+            return
+        elif self.token.tag == Tag.ID or self.token.tag == Tag.SYMBOL_OPEN_PARENTHESIS \
+                or self.token.tag == Tag.KEYWORD_NOT or self.token.tag == Tag.KEYWORD_TRUE \
+                or self.token.tag == Tag.KEYWORD_FALSE or self.token.tag == Tag.KEYWORD_NUMERIC \
+                or self.token.tag == Tag.KEYWORD_STRING:
+            self.expressao()
+            self.regex_exp_linha()
+        else:
+            self.skip(
+                self.messageFormat.format("), ID, (, nao, verdadeiro, falso, numerico, literal", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.regex_exp()
+
+    # RegexExp’ → , Expressao RegexExp’ 46 | ε 47
     def regex_exp_linha(self):
-        pass
+        if self.token.tag == Tag.SYMBOL_CLOSE_PARENTHESIS:
+            return
+        elif self.token.tag == Tag.SYMBOL_COMMA:
+            self.eat(Tag.SYMBOL_COMMA)
+            self.expressao()
+            self.regex_exp_linha()
+        else:
+            self.skip(self.messageFormat.format("), ,,", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.regex_exp_linha()
+
+    # CmdEscreva → "escreva" "(" Expressao ")" ";" 48
     def cmd_escreva(self):
-        if not self.eat(Tag.KEYWORD_WRITE):
-            self.skip("Expected \"escreva\", found \"{}\" instead".format(self.token.lexeme))
+        if self.token.tag == Tag.KEYWORD_WRITE:
+            self.eat(Tag.KEYWORD_WRITE)
 
-        if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
-            self.skip("Expected \"(\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
+                self.raise_syntax_error(self.messageFormat.format("(", self.token.lexeme))
 
-        self.expressao()
+            self.expressao()
 
-        if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
-            self.skip("Expected \")\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
+                self.raise_syntax_error(self.messageFormat.format(")", self.token.lexeme))
 
-        if not self.eat(Tag.SYMBOL_SEMICOLON):
-            self.skip("Expected \";\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_SEMICOLON):
+                self.raise_syntax_error(self.messageFormat.format(";", self.token.lexeme))
+        else:
+            self.skip(self.messageFormat.format("escreva", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.cmd_escreva()
+
+    # CmdLeia → "leia" "(" ID ")" ";" 49
     def cmd_leia(self):
-        if not self.eat(Tag.KEYWORD_READ):
-            self.skip("Expected \"leia\", found \"{}\" instead".format(self.token.lexeme))
+        if self.token.tag == Tag.KEYWORD_READ:
+            self.eat(Tag.KEYWORD_READ)
 
-        if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
-            self.skip("Expected \"(\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_OPEN_PARENTHESIS):
+                self.raise_syntax_error(self.messageFormat.format("(", self.token.lexeme))
 
-        if not self.eat(Tag.ID):
-            self.skip("Expected an \"ID\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.ID):
+                self.raise_syntax_error(self.messageFormat.format("ID", self.token.lexeme))
 
-        if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
-            self.skip("Expected \")\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_CLOSE_PARENTHESIS):
+                self.raise_syntax_error(self.messageFormat.format(")", self.token.lexeme))
 
-        if not self.eat(Tag.SYMBOL_SEMICOLON):
-            self.skip("Expected \";\", found \"{}\" instead".format(self.token.lexeme))
+            if not self.eat(Tag.SYMBOL_SEMICOLON):
+                self.raise_syntax_error(self.messageFormat.format(";", self.token.lexeme))
+        else:
+            self.skip(self.messageFormat.format("leia", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.cmd_leia()
+
+    # Expressao → Exp1 Exp’ 50
     def expressao(self):
-        self.exp1()
-        self.exp_linha()
+        if self.token.tag == Tag.ID or self.token.tag == Tag.SYMBOL_OPEN_PARENTHESIS \
+                or self.token.tag == Tag.KEYWORD_NOT or self.token.tag == Tag.KEYWORD_TRUE \
+                or self.token.tag == Tag.KEYWORD_FALSE or self.token.tag == Tag.KEYWORD_NUMERIC \
+                or self.token.tag == Tag.KEYWORD_STRING:
+            self.exp1()
+            self.exp_linha()
+        else:
+            self.skip(self.messageFormat.format("ID, (, nao, verdadeiro, falso, numerico, literal", self.token.lexeme))
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.expressao()
+
+    # Exp’ → < Exp1 Exp’ 51 | <= Exp1 Exp’ 52 | > Exp1 Exp’ 53 | >= Exp1 Exp’ 54 | = Exp1 Exp’ 55 | <> Exp1 Exp’ 56 | ε 57
     def exp_linha(self):
-        pass
+        if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.SYMBOL_SEMICOLON \
+                or self.token.tag == Tag.ID or self.token.tag == Tag.SYMBOL_CLOSE_PARENTHESIS \
+                or self.token.tag == Tag.SYMBOL_COMMA or self.token.tag == Tag.KEYWORD_RETURN \
+                or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                or self.token.tag == Tag.KEYWORD_DO or self.token.tag == Tag.KEYWORD_FOR \
+                or self.token.tag == Tag.KEYWORD_UNTIL or self.token.tag == Tag.KEYWORD_REPEAT \
+                or self.token.tag == Tag.KEYWORD_WRITE or self.token.tag == Tag.KEYWORD_READ:
+            return
+        elif self.token.tag == Tag.OPERATOR_LESS_THAN:
+            self.eat(Tag.OPERATOR_LESS_THAN)
+            self.exp1()
+            self.exp_linha()
+        elif self.token.tag == Tag.OPERATOR_LESS_THAN_EQUALS:
+            self.eat(Tag.OPERATOR_LESS_THAN_EQUALS)
+            self.exp1()
+            self.exp_linha()
+        elif self.token.tag == Tag.OPERATOR_GREATER_THAN:
+            self.eat(Tag.OPERATOR_GREATER_THAN)
+            self.exp1()
+            self.exp_linha()
+        elif self.token.tag == Tag.OPERATOR_GREATER_THAN_EQUALS:
+            self.eat(Tag.OPERATOR_GREATER_THAN_EQUALS)
+            self.exp1()
+            self.exp_linha()
+        elif self.token.tag == Tag.OPERATOR_EQUALS:
+            self.eat(Tag.OPERATOR_EQUALS)
+            self.exp1()
+            self.exp_linha()
+        elif self.token.tag == Tag.OPERATOR_DIFFERENT:
+            self.eat(Tag.OPERATOR_DIFFERENT)
+            self.exp1()
+            self.exp_linha()
+        else:
+            self.skip(
+                self.messageFormat.format(
+                    "fim, ;, ID, ), ,, retorne, se, enquanto, faca, para, ate, repita, escreva, leia, <, <=, >, >=, =, <>",
+                    self.token.lexeme
+                )
+            )
 
+            if self.token.tag is not Tag.END_OF_FILE:
+                self.exp_linha()
+
+    # Exp 1 → Exp 2 Exp 1 ’ 58
     def exp1(self):
         self.exp2()
         self.exp1_linha()
 
+    # Exp1’ → E Exp2 Exp1’ 59 | Ou Exp2 Exp1’ 60| ε 61
     def exp1_linha(self):
         pass
 
+    # Exp2 → Exp3 Exp2’ 62
     def exp2(self):
         self.exp3()
         self.exp2_linha()
 
+    # Exp2’ → + Exp3 Exp2’ 63 | - Exp3 Exp2’ 64 | ε 65
     def exp2_linha(self):
         pass
 
+    # Exp3 → Exp4 Exp3’ 66
     def exp3(self):
         self.exp4()
         self.exp3_linha()
 
+    # Exp3’ →* Exp4 Exp3’ 67 | / Exp4 Exp3’ 68 | ε 69
     def exp3_linha(self):
         pass
 
+    # Exp4 → id Exp4’ 70 | Numerico 71 | Litetal 72 | “verdadeiro” 73 | “falso” 74 | OpUnario Expressao 75| “(“ Expressao “)” 76
     def exp4(self):
         pass
 
+    # Exp4’ → “(“ RegexExp ”)” 77 | ε 78
     def exp4_linha(self):
         pass
 
+    # OpUnario → "Nao" 79
     def op_unario(self):
         if not self.eat(Tag.KEYWORD_NOT):
             self.skip("Expected \"Nao\", found \"{}\" instead".format(self.token.lexeme))
