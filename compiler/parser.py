@@ -156,9 +156,8 @@ class Parser:
     # ListaParam → Param ListaParam’ 11
     def lista_param(self):
         if self.token.tag == Tag.ID:
-            self.eat(Tag.ID)
             self.param()
-            self.lista_param()
+            self.lista_param_linha()
         else:
             self.skip(self.messageFormat.format("ID", self.token.lexeme))
 

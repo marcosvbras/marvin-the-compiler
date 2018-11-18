@@ -58,5 +58,4 @@ class Tag(Enum):
 
     # Values
     VALUE_NUMERICO = auto()
-    VALUE_LOGICO = auto()
     VALUE_LITERAL = auto()

@@ -1,6 +1,6 @@
 algoritmo 
 	declare 
-	op literal;
+	literal op;
 	
 	escreva("Vc prefere Goku ou Vegeta? Informe G ou V: ");
 	leia(op);
