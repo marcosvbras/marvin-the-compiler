@@ -8,15 +8,17 @@ class Parser:
         self.token = lexer.next_token()
         self.messageFormat = "Expected \"{}\", found \"{}\" instead"
 
-    def raise_syntax_error(self, message):
-        print("[Syntax Error] at {}:{} {}\n".format(self.token.line, self.token.column, message))
+    def raise_syntax_error(self, message=None):
+        if message is not None:
+            print("[Syntax Error] at {}:{} {}\n".format(self.token.line, self.token.column, message))
 
     def advance(self):
         self.token = self.lexer.next_token()
         print("[DEBUG]" + str(self.token))
 
-    def skip(self, message):
-        self.raise_syntax_error(message)
+    def skip(self, message=None):
+        if message is not None:
+            self.raise_syntax_error(message)
         self.advance()
 
     def eat(self, tag):
@@ -146,9 +148,16 @@ class Parser:
                 self.raise_syntax_error(self.messageFormat.format("fim", self.token.lexeme))
 
             if not self.eat(Tag.KEYWORD_SUBROUTINE):
-                self.skip(self.messageFormat.format("subrotina", self.token.lexeme))
+                self.raise_syntax_error(self.messageFormat.format("subrotina", self.token.lexeme))
         else:
             self.raise_syntax_error(self.messageFormat.format("subrotina", self.token.lexeme))
+
+            # Synch
+            if self.token.tag == Tag.END_OF_FILE:
+                return
+
+            # Skip
+            self.skip(None)
 
             if self.token.tag is not Tag.END_OF_FILE:
                 self.rotina()
@@ -238,10 +247,17 @@ class Parser:
         elif self.token.tag == Tag.KEYWORD_NULL:
             self.eat(Tag.KEYWORD_NULL)
         else:
-            self.skip(self.messageFormat.format("logico, numerico, literal, nulo", self.token.lexeme))
+            self.raise_syntax_error(self.messageFormat.format("logico, numerico, literal, nulo", self.token.lexeme))
 
-            if self.token.tag is not Tag.END_OF_FILE:
-                self.tipo()
+            # Synch
+            if self.token.tag == Tag.ID or self.token.tag == Tag.SYMBOL_COMMA \
+                    or self.token.tag == Tag.SYMBOL_CLOSE_PARENTHESIS:
+                return
+            else:  # Skip
+                self.skip()
+
+                if self.token.tag is not Tag.END_OF_FILE:
+                    self.tipo()
 
     # ListaCmd → ListaCmd’ 24
     def lista_cmd(self):
@@ -293,11 +309,18 @@ class Parser:
         elif self.token.tag == Tag.KEYWORD_READ:
             self.cmd_leia()
         else:
-            self.skip(
+            self.raise_syntax_error(
                 self.messageFormat.format("ID, se, enquanto, para, repita, escreva, leia", self.token.lexeme))
 
-            if self.token.tag is not Tag.END_OF_FILE:
-                self.cmd()
+            # Synch
+            if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.KEYWORD_RETURN \
+                    or self.token.tag == Tag.KEYWORD_UNTIL:
+                return
+            else:  # Skip
+                self.skip()
+
+                if self.token.tag is not Tag.END_OF_FILE:
+                    self.cmd()
 
     # Cmd’ → CmdAtrib 34 | CmdChamaRotina 35
     def cmd_linha(self):
@@ -306,11 +329,20 @@ class Parser:
         elif self.token.tag == Tag.OPERATOR_ASSIGN:
             self.cmd_atrib()
         else:
-            self.skip(
-                self.messageFormat.format("(, <--", self.token.lexeme))
+            self.raise_syntax_error(self.messageFormat.format("(, <--", self.token.lexeme))
 
-            if self.token.tag is not Tag.END_OF_FILE:
-                self.cmd_linha()
+            # Synch
+            if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.ID or self.token.tag == Tag.KEYWORD_RETURN \
+                    or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                    or self.token.tag == Tag.KEYWORD_FOR or self.token.tag == Tag.KEYWORD_UNTIL \
+                    or self.token.tag == Tag.KEYWORD_REPEAT or self.token.tag == Tag.KEYWORD_WRITE \
+                    or self.token.tag == Tag.KEYWORD_READ:
+                return
+            else:  # Skip
+                self.skip()
+
+                if self.token.tag is not Tag.END_OF_FILE:
+                    self.cmd_linha()
 
     # CmdSe → "se" "(" Expressao ")" "inicio" ListaCmd "fim" CmdSe’ 36
     def cmd_se(self):
@@ -335,11 +367,19 @@ class Parser:
 
             self.cmd_se_linha()
         else:
-            self.skip(
-                self.messageFormat.format("se", self.token.lexeme))
+            self.raise_syntax_error(self.messageFormat.format("se", self.token.lexeme))
 
-            if self.token.tag is not Tag.END_OF_FILE:
-                self.cmd_se()
+            # Synch
+            if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.ID or self.token.tag == Tag.KEYWORD_RETURN \
+                    or self.token.tag == Tag.KEYWORD_WHILE or self.token.tag == Tag.KEYWORD_FOR \
+                    or self.token.tag == Tag.KEYWORD_UNTIL or self.token.tag == Tag.KEYWORD_REPEAT \
+                    or self.token.tag == Tag.KEYWORD_WRITE or self.token.tag == Tag.KEYWORD_READ:
+                return
+            else:  # Skip
+                self.skip()
+
+                if self.token.tag is not Tag.END_OF_FILE:
+                    self.cmd_se()
 
     # CmdSe’ → "senao" "inicio" ListaCmd "fim" 37 | ε 38
     def cmd_se_linha(self):
@@ -391,10 +431,19 @@ class Parser:
             if not self.eat(Tag.KEYWORD_END):
                 self.raise_syntax_error(self.messageFormat.format("fim", self.token.lexeme))
         else:
-            self.skip(self.messageFormat.format("enquanto", self.token.lexeme))
+            self.raise_syntax_error(self.messageFormat.format("enquanto", self.token.lexeme))
 
-            if self.token.tag is not Tag.END_OF_FILE:
-                self.cmd_enquanto()
+            # Synch
+            if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.ID or self.token.tag == Tag.KEYWORD_RETURN \
+                    or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_FOR \
+                    or self.token.tag == Tag.KEYWORD_UNTIL or self.token.tag == Tag.KEYWORD_REPEAT \
+                    or self.token.tag == Tag.KEYWORD_WRITE or self.token.tag == Tag.KEYWORD_READ:
+                return
+            else:  # Skip
+                self.skip()
+
+                if self.token.tag is not Tag.END_OF_FILE:
+                    self.cmd_enquanto()
 
     # CmdPara → "para" ID CmdAtrib "ate" Expressao "faca" "inicio" ListaCmd "fim" 40
     def cmd_para(self):
@@ -422,10 +471,19 @@ class Parser:
             if not self.eat(Tag.KEYWORD_END):
                 self.raise_syntax_error(self.messageFormat.format("fim", self.token.lexeme))
         else:
-            self.skip(self.messageFormat.format("para", self.token.lexeme))
+            self.raise_syntax_error(self.messageFormat.format("para", self.token.lexeme))
 
-            if self.token.tag is not Tag.END_OF_FILE:
-                self.cmd_para()
+            # Synch
+            if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.ID or self.token.tag == Tag.KEYWORD_RETURN \
+                    or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                    or self.token.tag == Tag.KEYWORD_UNTIL or self.token.tag == Tag.KEYWORD_REPEAT \
+                    or self.token.tag == Tag.KEYWORD_WRITE or self.token.tag == Tag.KEYWORD_READ:
+                return
+            else:  # Skip
+                self.skip()
+
+                if self.token.tag is not Tag.END_OF_FILE:
+                    self.cmd_para()
 
     # CmdRepita → "repita" ListaCmd "ate" Expressao 41
     def cmd_repita(self):
@@ -438,10 +496,19 @@ class Parser:
 
             self.expressao()
         else:
-            self.skip(self.messageFormat.format("repita", self.token.lexeme))
+            self.raise_syntax_error(self.messageFormat.format("repita", self.token.lexeme))
 
-            if self.token.tag is not Tag.END_OF_FILE:
-                self.cmd_repita()
+            # Synch
+            if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.ID or self.token.tag == Tag.KEYWORD_RETURN \
+                    or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                    or self.token.tag == Tag.KEYWORD_FOR or self.token.tag == Tag.KEYWORD_UNTIL \
+                    or self.token.tag == Tag.KEYWORD_WRITE or self.token.tag == Tag.KEYWORD_READ:
+                return
+            else:  # Skip
+                self.skip()
+
+                if self.token.tag is not Tag.END_OF_FILE:
+                    self.cmd_repita()
 
     # CmdAtrib → "<--" Expressao ";" 42
     def cmd_atrib(self):
@@ -453,10 +520,20 @@ class Parser:
             if not self.eat(Tag.SYMBOL_SEMICOLON):
                 self.raise_syntax_error(self.messageFormat.format(";", self.token.lexeme))
         else:
-            self.skip(self.messageFormat.format("<--", self.token.lexeme))
+            self.raise_syntax_error(self.messageFormat.format("<--", self.token.lexeme))
 
-            if self.token.tag is not Tag.END_OF_FILE:
-                self.cmd_atrib()
+            # Synch
+            if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.ID or self.token.tag == Tag.KEYWORD_RETURN \
+                    or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                    or self.token.tag == Tag.KEYWORD_FOR or self.token.tag == Tag.KEYWORD_UNTIL \
+                    or self.token.tag == Tag.KEYWORD_REPEAT or self.token.tag == Tag.KEYWORD_WRITE \
+                    or self.token.tag == Tag.KEYWORD_READ:
+                return
+            else:  # Skip
+                self.skip()
+
+                if self.token.tag is not Tag.END_OF_FILE:
+                    self.cmd_atrib()
 
     # CmdChamaRotina → "(" RegexExp ")" ";" 43
     def cmd_chama_rotina(self):
@@ -471,10 +548,20 @@ class Parser:
             if not self.eat(Tag.SYMBOL_SEMICOLON):
                 self.raise_syntax_error(self.messageFormat.format(";", self.token.lexeme))
         else:
-            self.skip(self.messageFormat.format("(", self.token.lexeme))
+            self.raise_syntax_error(self.messageFormat.format("(", self.token.lexeme))
 
-            if self.token.tag is not Tag.END_OF_FILE:
-                self.cmd_chama_rotina()
+            # Synch
+            if self.token.tag == Tag.KEYWORD_END or self.token.tag == Tag.ID or self.token.tag == Tag.KEYWORD_RETURN \
+                    or self.token.tag == Tag.KEYWORD_IF or self.token.tag == Tag.KEYWORD_WHILE \
+                    or self.token.tag == Tag.KEYWORD_FOR or self.token.tag == Tag.KEYWORD_UNTIL \
+                    or self.token.tag == Tag.KEYWORD_REPEAT or self.token.tag == Tag.KEYWORD_WRITE \
+                    or self.token.tag == Tag.KEYWORD_READ:
+                return
+            else:  # Skip
+                self.skip()
+
+                if self.token.tag is not Tag.END_OF_FILE:
+                    self.cmd_chama_rotina()
 
     # RegexExp → Expressao RegexExp’ 44 | ε 45
     def regex_exp(self):
