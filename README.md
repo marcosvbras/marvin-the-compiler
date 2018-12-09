@@ -1,4 +1,4 @@
-# [In Progress] Marvin: The Compiler
+# Marvin: The Compiler
 
 <p align="center">
   <img src="images/the-martian.gif" alt="Marvin The Martian gif"/>
@@ -23,8 +23,8 @@ As I said, Mars is a simple programming language and it counts with the followin
 ## About the compiler
 
 The compiler consists in 3 parts: 
-- **[In Progress]** Lexical Analyser
-- **[In Progress]** Syntax Analyser
+- **Lexical Analyser**: It's the first phase of every compiler. The lexer takes a source code from language preprocessors that are written in the form of sentences. The lexer then breaks the syntaxes into a series of tokens (language keywords), by removing any whitespace or comments in the source code. If the lexer finds an invalid token during its running, it throws an error for user. In Marvin, it will just prints a simple Syntax Error message with the corresponding line and column of the error. The lexer uses the **Panic mode** approach as error catcher: when it encounters an error anywhere in the statement, it ignores the rest of the statement by not processing input from erroneous input to delimiter, such as semi-colon. This is the easiest way of error-recovery and also, it prevents the parser from developing infinite loops.
+- **Syntax Analyser**: It's the second phase of a compiler. This is roughly the equivalent of checking that some ordinary text written in some language. It takes the recognized token from the lexer and then check the order according to the grammer. Marvin also uses **Panic Mode** by checking *Synch* on Preditive table.
 - **[In Progress]** Semantic Analyser
 
 
